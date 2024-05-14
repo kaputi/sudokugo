@@ -3,11 +3,13 @@ package solver
 import (
 	"testing"
 
+	"github.com/kaputi/sudokugo/sudoku"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSover(t *testing.T) {
-	problem := [][]uint8{
+func TestSolver2(t *testing.T) {
+
+	problem := sudoku.Table{
 		{5, 3, 0, 0, 7, 0, 0, 0, 0},
 		{6, 0, 0, 1, 9, 5, 0, 0, 0},
 		{0, 9, 8, 0, 0, 0, 0, 6, 0},
@@ -21,7 +23,9 @@ func TestSover(t *testing.T) {
 		{0, 0, 0, 0, 8, 0, 0, 7, 9},
 	}
 
-	expected := [][]uint8{
+	assert.Equal(t, true, Validate(problem))
+
+	expected := sudoku.Table{
 		{5, 3, 4, 6, 7, 8, 9, 1, 2},
 		{6, 7, 2, 1, 9, 5, 3, 4, 8},
 		{1, 9, 8, 3, 4, 2, 5, 6, 7},
@@ -38,7 +42,7 @@ func TestSover(t *testing.T) {
 	assert.Equal(t, expected, solved)
 	assert.Nil(t, err)
 
-	unsolvable := [][]uint8{
+	unsolvable := sudoku.Table{
 		{2, 0, 0, 9, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0, 0, 6, 0},
 		{0, 0, 0, 0, 0, 1, 0, 0, 0},
@@ -52,7 +56,10 @@ func TestSover(t *testing.T) {
 		{0, 0, 7, 0, 0, 0, 0, 0, 0},
 	}
 
-	_, err = Solve(unsolvable)
 
-	assert.EqualError(t, err, "no solution found")
+	assert.Equal(t, false, Validate(unsolvable))
+
+	_, err = Solve(unsolvable)
+	assert.EqualError(t, err, "unsolvable")
+
 }
