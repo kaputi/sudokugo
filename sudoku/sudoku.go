@@ -174,11 +174,6 @@ func countSolutionsHelper(board *Board, counter *int) bool {
 
 		(*board)[row][col] = value
 
-		if row == 8 && col == 8 {
-			*counter++
-			break
-		}
-
 		if checkFullBoard(*board) {
 			*counter++
 			break
@@ -186,6 +181,40 @@ func countSolutionsHelper(board *Board, counter *int) bool {
 			return true
 		}
 
+	}
+
+	(*board)[row][col] = 0
+	return false
+}
+
+func SolveAndCount(board Board) ([]Board, int) {
+	counter := 0
+	var solved []Board
+
+	solveAndCountHelper(&board, &solved, &counter)
+
+	return solved, counter
+}
+
+func solveAndCountHelper(board *Board, solved *[]Board, counter *int) bool {
+	row, col := getNextEmpty(*board)
+
+	for value := uint8(1); value <= 9; value++ {
+		if !isValidCell(value, row, col, *board) {
+			continue
+		}
+
+		(*board)[row][col] = value
+
+		// if board is full
+		if checkFullBoard(*board) {
+			// copy := *board
+			*solved = append(*solved, *board)
+			*counter++
+			break
+		} else if solveAndCountHelper(board, solved, counter) {
+			return true
+		}
 	}
 
 	(*board)[row][col] = 0
