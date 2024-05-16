@@ -1,6 +1,7 @@
 package sudoku
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,7 @@ func TestSudoku(t *testing.T) {
 		{0, 0, 0, 0, 8, 0, 0, 7, 9},
 	}
 
-	assert.Equal(t, true, Validate(board))
+	// assert.Equal(t, true, Validate(board))
 
 	expected := Board{
 		{5, 3, 4, 6, 7, 8, 9, 1, 2},
@@ -56,24 +57,8 @@ func TestSudoku(t *testing.T) {
 		{0, 0, 0, 0, 0, 0, 0, 0, 0},
 	}
 
-	worstCaseExpects := Board{
-		{9, 8, 7, 6, 5, 4, 3, 2, 1},
-		{1, 2, 3, 7, 8, 9, 4, 5, 6},
-		{4, 5, 6, 1, 2, 3, 7, 8, 9},
-		// -------------------
-		{2, 1, 4, 3, 6, 5, 8, 9, 7},
-		{3, 6, 5, 8, 9, 7, 1, 4, 2},
-		{7, 9, 8, 2, 4, 1, 5, 6, 3},
-		// -------------------
-		{5, 3, 2, 4, 1, 6, 9, 7, 8},
-		{6, 4, 1, 9, 7, 8, 2, 3, 5},
-		{8, 7, 9, 5, 3, 2, 6, 1, 4},
-	}
-
-	solvedWorstCase, err := Solve(worstCase)
-
-	assert.Equal(t, solvedWorstCase, worstCaseExpects)
-	assert.Nil(t, err)
+	_, err = Solve(worstCase)
+	assert.EqualError(t, err, "invalid, multiple solutions found")
 
 	unsolvable := Board{
 		{2, 0, 0, 9, 0, 0, 0, 0, 0},
@@ -89,14 +74,19 @@ func TestSudoku(t *testing.T) {
 		{0, 0, 7, 0, 0, 0, 0, 0, 0},
 	}
 
-	assert.Equal(t, false, Validate(unsolvable))
+	// assert.Equal(t, false, Validate(unsolvable))
 
 	_, err = Solve(unsolvable)
 	assert.EqualError(t, err, "unsolvable")
 
-	newboard := CreatePuzzle(4)
+	newBoard, newSolutionExpects := CreatePuzzle(6)
+	clues := len(GetFilled(newBoard))
+	fmt.Println("clues: ", clues)
+	PrintBoard(newBoard)
 
-	assert.Equal(t, 1, CountSolutions(newboard))
+	newBoardSolution, err := Solve(newBoard)
+	assert.Equal(t, newSolutionExpects, newBoardSolution)
+	assert.Nil(t, err)
 
 	twoSolutions := Board{
 		{2, 9, 5, 7, 4, 3, 8, 6, 1},
@@ -110,39 +100,17 @@ func TestSudoku(t *testing.T) {
 		{1, 5, 4, 9, 3, 8, 6, 0, 0},
 	}
 
-	solutionCount := CountSolutions(twoSolutions)
-	assert.Equal(t, 2, solutionCount)
+	count := CountSolutions(twoSolutions)
+	assert.Equal(t, 2, count)
 
-	solutions, counter := SolveAndCount(twoSolutions)
+	sudoku := New()
 
-	assert.Equal(t, 2, counter)
+	err = sudoku.Generate(4)
+	fmt.Println(err)
 
-	twoSolutionsExpected :=
-		[]Board{
-			{
-				{2, 9, 5, 7, 4, 3, 8, 6, 1},
-				{4, 3, 1, 8, 6, 5, 9, 2, 7},
-				{8, 7, 6, 1, 9, 2, 5, 4, 3},
-				{3, 8, 7, 4, 5, 9, 2, 1, 6},
-				{6, 1, 2, 3, 8, 7, 4, 9, 5},
-				{5, 4, 9, 2, 1, 6, 7, 3, 8},
-				{7, 6, 3, 5, 2, 4, 1, 8, 9},
-				{9, 2, 8, 6, 7, 1, 3, 5, 4},
-				{1, 5, 4, 9, 3, 8, 6, 7, 2},
-			},
-			{
-				{2, 9, 5, 7, 4, 3, 8, 6, 1},
-				{4, 3, 1, 8, 6, 5, 9, 7, 2},
-				{8, 7, 6, 1, 9, 2, 5, 4, 3},
-				{3, 8, 7, 4, 5, 9, 2, 1, 6},
-				{6, 1, 2, 3, 8, 7, 4, 9, 5},
-				{5, 4, 9, 2, 1, 6, 7, 3, 8},
-				{7, 6, 3, 5, 2, 4, 1, 8, 9},
-				{9, 2, 8, 6, 7, 1, 3, 5, 4},
-				{1, 5, 4, 9, 3, 8, 6, 2, 7},
-			},
-		}
+	strings := sudoku.GetBoardStrings()
 
-	assert.Equal(t, twoSolutionsExpected, solutions)
-
+  for _, row := range strings{
+    fmt.Println(row)
+  }
 }

@@ -1,10 +1,6 @@
 package sudoku
 
-import (
-	"errors"
-	"fmt"
-	"math/rand"
-)
+import "fmt"
 
 type Board [9][9]uint8
 
@@ -13,396 +9,235 @@ type Coord struct {
 	col int
 }
 
+type Theme map[string]string
+
 func NewCoord(row, col int) Coord {
 	return Coord{row: row, col: col}
 }
 
+type Cell struct {
+	coord Coord
+	value uint8
+}
+
+func NewCell(row, col int, value uint8) Cell {
+	return Cell{coord: NewCoord(row, col), value: value}
+}
+
+const (
+	_ = iota
+	PLAY_LAYER
+	NOTE1_LAYER
+	NOTE2_LAYER
+)
+
 type Sudoku struct {
-	board Board
+	puzzle   Board
+	solution Board
+
+	layer int
+
+	// showCurrentErrors  bool
+	// showSolutionErrors bool
+
+	theme Theme
+
+	placed             []Cell
+	notes1             []Cell
+	notes2             []Cell
+	errorsWithCurrent  []Cell
+	errorsWithSolution []Cell
 }
 
 func New() *Sudoku {
-	return &Sudoku{}
+	return &Sudoku{
+		theme: map[string]string{
+			"grid":      "blue",
+			"note1Grid": "green",
+			"note2Grid": "red",
+			"puzzle":    "yellow",
+			"placed":    "green",
+			"error":     "red",
+			"note":      "cyan",
+		},
+		layer: PLAY_LAYER,
+	}
 }
 
 func (s *Sudoku) SetBoard(board Board) error {
-
-	if !Validate(board) {
-		return errors.New("invalid")
+	solution, err := Solve(board)
+	if err != nil {
+		return err
 	}
 
-	s.board = board
+	s.puzzle = board
+	s.solution = solution
 
 	return nil
 }
 
-func Solve(board Board) (Board, error) {
+func (s *Sudoku) Generate(dificulty int) error {
+	newBoard, solution := CreatePuzzle(dificulty)
 
-	emptySpaces := GetEmpty(board)
+	s.puzzle = newBoard
+	s.solution = solution
 
-	if solveRecurse(0, &emptySpaces, &board) {
-		return board, nil
+	return nil
+}
+
+func (s *Sudoku) SetCell(row, col int, value uint8) {
+	if s.puzzle[row][col] != 0 {
+		return
 	}
 
-	return board, errors.New("unsolvable")
-}
+	isErrorWithSoluton := s.solution[row][col] != value
 
-func getCoords(board Board, filled bool) []Coord {
-	spaces := []Coord{}
+	cell := NewCell(row, col, value)
 
-	for rowIdx, row := range board {
-		for colIdx, cell := range row {
-			if filled && cell != 0 {
-				spaces = append(spaces, NewCoord(rowIdx, colIdx))
-			}
-			if !filled && cell == 0 {
-				spaces = append(spaces, NewCoord(rowIdx, colIdx))
-			}
-		}
+	if isErrorWithSoluton {
+		s.errorsWithSolution = append(s.errorsWithSolution, cell)
+		return
 	}
 
-	return spaces
+	// TODO:  iserrorwithcurrent
+
+	s.placed = append(s.placed, cell)
 }
 
-func GetEmpty(board Board) []Coord {
-	emptySpaces := getCoords(board, false)
-	return emptySpaces
-}
-
-func GetFilled(board Board) []Coord {
-	filledSpaces := getCoords(board, true)
-	return filledSpaces
-}
-
-func Validate(board Board) bool {
-	// TODO: check for only one posible solution
-	_, err := Solve(board)
-	return err == nil
-}
-
-func solveRecurse(emtySpaceIdx int, emptySpaces *[]Coord, board *Board) bool {
-	if emtySpaceIdx == len((*emptySpaces)) {
-		return true
+func (s *Sudoku) SetNote(row, col, noteLayer int, value uint8) {
+	if s.puzzle[row][col] != 0 {
+		return
 	}
 
-	emptySpace := (*emptySpaces)[emtySpaceIdx]
+	cell := NewCell(row, col, value)
 
-	for number := uint8(1); number <= 9; number++ {
-		// for _, number := range numbers {
-		if isValidCell(number, emptySpace.row, emptySpace.col, *(board)) {
-			(*board)[emptySpace.row][emptySpace.col] = number
-
-			if solveRecurse(emtySpaceIdx+1, emptySpaces, board) {
-				return true
-			}
-
-			(*board)[emptySpace.row][emptySpace.col] = 0
-		}
-	}
-
-	return false
-}
-
-func isValidCell(number uint8, row int, col int, board Board) bool {
-	// check that number doesnt repeat in row or column
-	for i := 0; i < 9; i++ {
-		if board[row][i] == number || board[i][col] == number {
-			return false
-		}
-	}
-
-	// check that number doesnt repeat in the 3x3 grid
-	firstRowIdxInGrid := row - row%3
-	firstColIdxInGrid := col - col%3
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			if board[firstRowIdxInGrid+i][firstColIdxInGrid+j] == number {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-// TODO: make to work with generics
-// func scrambleSlice(slice *[]interface{}) {
-// 	for i := range *slice {
-// 		j := rand.Intn(i + 1)
-// 		(*slice)[i], (*slice)[j] = (*slice)[j], (*slice)[i]
-// 	}
-// }
-
-func SwapNumbersRandomly(board *Board) {
-	numbers := []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}
-
-	// scramble numbers
-	// TODO: use func
-	for i := range numbers {
-		j := rand.Intn(i + 1)
-		numbers[i], numbers[j] = numbers[j], numbers[i]
-	}
-
-	for rowIdx, row := range *board {
-		for colIdx, cell := range row {
-			(*board)[rowIdx][colIdx] = numbers[cell-1]
-		}
-	}
-
-}
-
-func getNextEmpty(board Board) (int, int) {
-	for rowIdx, row := range board {
-		for colIdx, cell := range row {
-			if cell == 0 {
-				return rowIdx, colIdx
-			}
-		}
-	}
-
-	return -1, -1
-}
-
-func countSolutionsHelper(board *Board, counter *int) bool {
-
-	row, col := getNextEmpty(*board)
-
-	for value := uint8(1); value <= 9; value++ {
-		if !isValidCell(value, row, col, *board) {
-			continue
-		}
-
-		(*board)[row][col] = value
-
-		if checkFullBoard(*board) {
-			*counter++
-			break
-		} else if countSolutionsHelper(board, counter) {
-			return true
-		}
-
-	}
-
-	(*board)[row][col] = 0
-	return false
-}
-
-func SolveAndCount(board Board) ([]Board, int) {
-	counter := 0
-	var solved []Board
-
-	solveAndCountHelper(&board, &solved, &counter)
-
-	return solved, counter
-}
-
-func solveAndCountHelper(board *Board, solved *[]Board, counter *int) bool {
-	row, col := getNextEmpty(*board)
-
-	for value := uint8(1); value <= 9; value++ {
-		if !isValidCell(value, row, col, *board) {
-			continue
-		}
-
-		(*board)[row][col] = value
-
-		// if board is full
-		if checkFullBoard(*board) {
-			// copy := *board
-			*solved = append(*solved, *board)
-			*counter++
-			break
-		} else if solveAndCountHelper(board, solved, counter) {
-			return true
-		}
-	}
-
-	(*board)[row][col] = 0
-	return false
-}
-
-func CountSolutions(board Board) int {
-	counter := 0
-
-	countSolutionsHelper(&board, &counter)
-
-	return counter
-}
-
-func removeCoords(board *Board, coord Coord) bool {
-
-	val := (*board)[coord.row][coord.col]
-	(*board)[coord.row][coord.col] = 0
-
-	solutions := CountSolutions(*board)
-
-	if solutions != 1 {
-		board[coord.row][coord.col] = val
-		return false
-	}
-
-	return true
-}
-
-func removeNumbers(board *Board, dificulty int) {
-
-	dificulty = max(0, min(6, dificulty))
-
-	filledSpaces := GetFilled(*board)
-
-	filledLen := len(filledSpaces)
-
-	clues := 30 - dificulty
-
-	// pick a random filled space to remove
-	coord := filledSpaces[rand.Intn(filledLen)]
-	if removeCoords(board, coord) {
-		filledLen--
+	if noteLayer == 1 {
+		s.notes1 = append(s.notes1, cell)
 	} else {
-		removeNumbers(board, dificulty)
-		return
+		s.notes2 = append(s.notes2, cell)
 	}
+}
 
-	// TODO: final sudoku has 20 numbers, this needs to be adjusted somehow for dificulty
-	if filledLen <= clues {
-		return
-	}
+func (s *Sudoku) ClearCell(row, col int) {
+	cell := NewCell(row, col, 0)
 
-	diagonals := getDiagonals(coord, 1)
-	//scramble diagonals
-	// TODO: use fn
-	for i := range diagonals {
-		j := rand.Intn(i + 1)
-		diagonals[i], diagonals[j] = diagonals[j], diagonals[i]
-	}
-
-	amountOfDiagonalsToRemove := 4
-	// after removing 20 numbers, only remove 2 of the diagonals
-	if filledLen <= 60 {
-		amountOfDiagonalsToRemove = 2
-	}
-
-	// remove empty diagonals
-	finalDiagonals := []Coord{}
-	for _, coord := range diagonals {
-		if board[coord.row][coord.col] != 0 && len(finalDiagonals) < amountOfDiagonalsToRemove {
-			finalDiagonals = append(finalDiagonals, coord)
+	for i, c := range s.placed {
+		if c.coord == cell.coord {
+			s.placed = append(s.placed[:i], s.placed[i+1:]...)
+			return
 		}
 	}
 
-	for _, coord := range finalDiagonals {
-		if removeCoords(board, coord) {
-			filledLen--
-			if filledLen <= clues {
-				return
+	for i, c := range s.errorsWithCurrent {
+		if c.coord == cell.coord {
+			s.errorsWithCurrent = append(s.errorsWithCurrent[:i], s.errorsWithCurrent[i+1:]...)
+			return
+		}
+	}
+
+	for i, c := range s.errorsWithSolution {
+		if c.coord == cell.coord {
+			s.errorsWithSolution = append(s.errorsWithSolution[:i], s.errorsWithSolution[i+1:]...)
+			return
+		}
+	}
+}
+
+func (s *Sudoku) getCellValue(row, col int) string {
+	// return s.puzzle[row][col]
+	if s.puzzle[row][col] != 0 {
+		return color(s.theme["puzzle"], fmt.Sprintf("%d", s.puzzle[row][col]))
+	}
+
+	if s.layer == NOTE1_LAYER {
+		for _, cell := range s.notes1 {
+			if cell.coord.row == row && cell.coord.col == col {
+				return color(s.theme["note"], fmt.Sprintf("%d", cell.value))
 			}
 		}
 	}
 
-	removeNumbers(board, dificulty)
-}
-
-func getDiagonals(coord Coord, amount int) []Coord {
-	diagonals := []Coord{}
-
-	for i := 1; i <= amount; i++ {
-		if coord.row+i < 9 && coord.col+i < 9 {
-			diagonals = append(diagonals, NewCoord(coord.row+i, coord.col+i))
-		}
-		if coord.row+i < 9 && coord.col-i > 0 {
-			diagonals = append(diagonals, NewCoord(coord.row+i, coord.col-i))
-		}
-		if coord.row-i > 0 && coord.col+i < 9 {
-			diagonals = append(diagonals, NewCoord(coord.row-i, coord.col+i))
-		}
-		if coord.row-i > 0 && coord.col-i > 0 {
-			diagonals = append(diagonals, NewCoord(coord.row-i, coord.col-i))
+	if s.layer == NOTE2_LAYER {
+		for _, cell := range s.notes2 {
+			if cell.coord.row == row && cell.coord.col == col {
+				return color(s.theme["note"], fmt.Sprintf("%d", cell.value))
+			}
 		}
 	}
 
-	return diagonals
-}
-
-func CreatePuzzle(dificulty int) Board {
-	puzzle := CreateSolvedBoard()
-
-	removeNumbers(&puzzle, dificulty)
-
-	return puzzle
-}
-
-func CreateSolvedBoard() Board {
-	board := Board{}
-
-	// fill 9 random spaces with numbers from 1 to 9
-	for i := uint8(0); i < 9; i++ {
-		row := rand.Intn(9)
-		col := rand.Intn(9)
-
-		for board[row][col] != 0 {
-			row = rand.Intn(9)
-			col = rand.Intn(9)
+	if s.layer == PLAY_LAYER {
+		for _, cell := range s.placed {
+			if cell.coord.row == row && cell.coord.col == col {
+				return color(s.theme["placed"], fmt.Sprintf("%d", cell.value))
+			}
 		}
-
-		board[row][col] = i
 	}
 
-	// solve the board
-	solved, _ := Solve(board)
+	// TODO: erroes
+	// currentErrorTheme := s.theme["placed"]
+	// solutionErrorTheme := s.theme["placed"]
+	// if s.showCurrentErrors {
+	// 	currentErrorTheme = s.theme["error"]
+	// }
+	// if s.showSolutionErrors {
+	// 	solutionErrorTheme = s.theme["error"]
+	// }
 
-	// the solver try to put smaller numbers first so boards are always low on first coords
-	// so i mantain the board structure but swap numbers
-	SwapNumbersRandomly(&solved)
-
-	return solved
+	return " "
 }
 
-func PrintBoard(board Board) {
+func (s *Sudoku) GetBoardStrings() []string {
 
-	fmt.Println(" -------------------------------------------------")
-	fmt.Println("   0 1 2 | 3 4 5 | 6 7 8")
-	fmt.Println("   =====================")
-	for rowIdx, row := range board {
-		if rowIdx%3 == 0 && rowIdx != 0 {
-			fmt.Println(" | ---------------------")
+	gridLayer := "grid"
+	if s.layer == NOTE1_LAYER {
+		gridLayer = "note1Grid"
+	}
+	if s.layer == NOTE2_LAYER {
+		gridLayer = "note2Grid"
+	}
+
+	topRow := color(s.theme[gridLayer], "┌───┬───┬───┐ ┌───┬───┬───┐ ┌───┬───┬───┐")
+	midRow := color(s.theme[gridLayer], "├───┼───┼───┤ ├───┼───┼───┤ ├───┼───┼───┤")
+	botRow := color(s.theme[gridLayer], "└───┴───┴───┘ └───┴───┴───┘ └───┴───┴───┘")
+	split := color(s.theme[gridLayer], "│")
+	dSplit := color(s.theme[gridLayer], "│ │")
+
+	boardString := []string{
+		topRow,
+	}
+
+	for rowIdx, row := range s.puzzle {
+		if rowIdx%3 != 0 {
+			boardString = append(boardString, midRow)
+		} else {
+			if rowIdx != 0 {
+				boardString = append(boardString, botRow)
+				boardString = append(boardString, topRow)
+			}
 		}
-		for colIdx, cell := range row {
+
+		rowStr := ""
+		for colIdx := range row {
 			if colIdx == 0 {
-				fmt.Printf("%v| ", rowIdx)
+				rowStr += split
+			} else {
+				if colIdx%3 == 0 {
+					rowStr += dSplit
+				} else {
+					rowStr += split
+				}
 			}
-			fmt.Printf("%v ", cell)
-			if (colIdx+1)%3 == 0 && colIdx != len(row)-1 {
-				fmt.Print("| ")
-			}
+
+			rowStr += fmt.Sprintf(" %v ", s.getCellValue(rowIdx, colIdx))
 		}
-		fmt.Print("\n")
-	}
+		rowStr += split
 
-	fmt.Print("\n")
-}
-
-func checkFullBoard(board Board) bool {
-	for _, rowIdx := range board {
-		for _, cell := range rowIdx {
-			if cell == 0 {
-				return false
-			}
+		boardString = append(boardString, rowStr)
+		if rowIdx == 8 {
+			boardString = append(boardString, botRow)
 		}
 	}
 
-	return true
-}
+	return boardString
 
-/*
-binary map
-0 = 0000
-1 = 0001
-2 = 0010
-3 = 0011
-4 = 0100
-5 = 0101
-6 = 0110
-7 = 0111
-8 = 1000
-9 = 1001
-*/
+}
