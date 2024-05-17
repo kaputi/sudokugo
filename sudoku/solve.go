@@ -7,7 +7,11 @@ import (
 func isValidCell(number uint8, row int, col int, board Board) bool {
 	// check that number doesnt repeat in row or column
 	for i := 0; i < 9; i++ {
-		if board[row][i] == number || board[i][col] == number {
+		if board[row][i] == number && i != col {
+			return false
+		}
+
+		if board[i][col] == number && i != row {
 			return false
 		}
 	}
@@ -17,9 +21,15 @@ func isValidCell(number uint8, row int, col int, board Board) bool {
 	firstColIdxInGrid := col - col%3
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			if board[firstRowIdxInGrid+i][firstColIdxInGrid+j] == number {
+			checRow := firstRowIdxInGrid + i
+			checkCol := firstColIdxInGrid + j
+			if checRow == row && checkCol == col {
+				continue
+			}
+			if board[checRow][checkCol] == number {
 				return false
 			}
+
 		}
 	}
 

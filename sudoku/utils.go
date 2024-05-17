@@ -8,12 +8,7 @@ import (
 func swapNumbersRandomly(board *Board) {
 	numbers := []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}
 
-	// scramble numbers
-	// TODO: use func
-	for i := range numbers {
-		j := rand.Intn(i + 1)
-		numbers[i], numbers[j] = numbers[j], numbers[i]
-	}
+	scrambleSlice(&numbers)
 
 	for rowIdx, row := range *board {
 		for colIdx, cell := range row {
@@ -62,13 +57,12 @@ func GetFilled(board Board) []Coord {
 	return filledSpaces
 }
 
-// TODO: make to work with generics
-// func scrambleSlice(slice *[]interface{}) {
-// 	for i := range *slice {
-// 		j := rand.Intn(i + 1)
-// 		(*slice)[i], (*slice)[j] = (*slice)[j], (*slice)[i]
-// 	}
-// }
+func scrambleSlice[T any](slice *[]T) {
+	for i := range *slice {
+		j := rand.Intn(i + 1)
+		(*slice)[i], (*slice)[j] = (*slice)[j], (*slice)[i]
+	}
+}
 
 var colorMap = map[string]string{
 	"reset":   "\033[0m",

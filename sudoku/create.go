@@ -50,12 +50,7 @@ func removeNumbers(board *Board, dificulty int, iterations *int) {
 	}
 
 	diagonals := getDiagonals(coord, 1)
-	//scramble diagonals
-	// TODO: use fn
-	for i := range diagonals {
-		j := rand.Intn(i + 1)
-		diagonals[i], diagonals[j] = diagonals[j], diagonals[i]
-	}
+	scrambleSlice(&diagonals)
 
 	amountOfDiagonalsToRemove := 4
 	// after removing 20 numbers, only remove 2 of the diagonals

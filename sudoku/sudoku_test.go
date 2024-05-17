@@ -103,14 +103,30 @@ func TestSudoku(t *testing.T) {
 	count := CountSolutions(twoSolutions)
 	assert.Equal(t, 2, count)
 
-	sudoku := New()
+	generatedSudoku := New()
 
-	err = sudoku.Generate(4)
-	fmt.Println(err)
+	err = generatedSudoku.Generate(4)
+	assert.Nil(t, err)
 
-	strings := sudoku.GetBoardStrings()
+	setSudoku := New()
+	err = setSudoku.SetBoard(board)
+	assert.Nil(t, err)
 
-  for _, row := range strings{
-    fmt.Println(row)
-  }
+	empty := GetEmpty(setSudoku.placed)
+	setSudoku.SetCell(empty[0].row, empty[0].col, 5)
+
+	setSudoku.SetErrorOption("current")
+	fmt.Println("--------------current errors--------------")
+	setSudoku.Display()
+	setSudoku.SetErrorOption("solution")
+	fmt.Println("--------------solution errors--------------")
+	setSudoku.Display()
+	setSudoku.SetErrorOption("none")
+	fmt.Println("--------------no errors--------------")
+	setSudoku.Display()
+
+	setSudoku.SetLayerOption(NOTE1_LAYER)
+	setSudoku.SetCell(0, 3, 8)
+  setSudoku.Display()
+
 }

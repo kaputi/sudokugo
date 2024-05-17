@@ -34,19 +34,14 @@ const (
 type Sudoku struct {
 	puzzle   Board
 	solution Board
+	placed   Board
+	notes1   Board
+	notes2   Board
 
-	layer int
-
-	// showCurrentErrors  bool
-	// showSolutionErrors bool
-
-	theme Theme
-
-	placed             []Cell
-	notes1             []Cell
-	notes2             []Cell
-	errorsWithCurrent  []Cell
-	errorsWithSolution []Cell
+	layer              int
+	showCurrentErrors  bool
+	showSolutionErrors bool
+	theme              Theme
 }
 
 func New() *Sudoku {
@@ -64,6 +59,25 @@ func New() *Sudoku {
 	}
 }
 
+// TODO: esto no me gusta, puede ser con un iota como layer
+func (s *Sudoku) SetErrorOption(option string) {
+	switch option {
+	case "none":
+		s.showCurrentErrors = false
+		s.showSolutionErrors = false
+	case "current":
+		s.showCurrentErrors = true
+		s.showSolutionErrors = false
+	case "solution":
+		s.showCurrentErrors = false
+		s.showSolutionErrors = true
+	}
+}
+
+func (s *Sudoku) SetLayerOption(layer int) {
+	s.layer = layer
+}
+
 func (s *Sudoku) SetBoard(board Board) error {
 	solution, err := Solve(board)
 	if err != nil {
@@ -71,6 +85,7 @@ func (s *Sudoku) SetBoard(board Board) error {
 	}
 
 	s.puzzle = board
+	s.placed = board
 	s.solution = solution
 
 	return nil
@@ -80,6 +95,7 @@ func (s *Sudoku) Generate(dificulty int) error {
 	newBoard, solution := CreatePuzzle(dificulty)
 
 	s.puzzle = newBoard
+	s.placed = newBoard
 	s.solution = solution
 
 	return nil
@@ -90,100 +106,67 @@ func (s *Sudoku) SetCell(row, col int, value uint8) {
 		return
 	}
 
-	isErrorWithSoluton := s.solution[row][col] != value
-
-	cell := NewCell(row, col, value)
-
-	if isErrorWithSoluton {
-		s.errorsWithSolution = append(s.errorsWithSolution, cell)
+	if s.layer != PLAY_LAYER {
+		s.setNote(row, col, s.layer, value)
 		return
 	}
 
-	// TODO:  iserrorwithcurrent
-
-	s.placed = append(s.placed, cell)
+	s.placed[row][col] = value
 }
 
-func (s *Sudoku) SetNote(row, col, noteLayer int, value uint8) {
-	if s.puzzle[row][col] != 0 {
-		return
-	}
-
-	cell := NewCell(row, col, value)
-
-	if noteLayer == 1 {
-		s.notes1 = append(s.notes1, cell)
-	} else {
-		s.notes2 = append(s.notes2, cell)
+func (s *Sudoku) setNote(row, col, noteLayer int, value uint8) {
+	switch noteLayer {
+	case NOTE1_LAYER:
+		s.notes1[row][col] = value
+	case NOTE2_LAYER:
+		s.notes2[row][col] = value
 	}
 }
 
 func (s *Sudoku) ClearCell(row, col int) {
-	cell := NewCell(row, col, 0)
-
-	for i, c := range s.placed {
-		if c.coord == cell.coord {
-			s.placed = append(s.placed[:i], s.placed[i+1:]...)
-			return
-		}
-	}
-
-	for i, c := range s.errorsWithCurrent {
-		if c.coord == cell.coord {
-			s.errorsWithCurrent = append(s.errorsWithCurrent[:i], s.errorsWithCurrent[i+1:]...)
-			return
-		}
-	}
-
-	for i, c := range s.errorsWithSolution {
-		if c.coord == cell.coord {
-			s.errorsWithSolution = append(s.errorsWithSolution[:i], s.errorsWithSolution[i+1:]...)
-			return
-		}
-	}
+	s.SetCell(row, col, 0)
 }
 
 func (s *Sudoku) getCellValue(row, col int) string {
-	// return s.puzzle[row][col]
-	if s.puzzle[row][col] != 0 {
-		return color(s.theme["puzzle"], fmt.Sprintf("%d", s.puzzle[row][col]))
-	}
-
-	if s.layer == NOTE1_LAYER {
-		for _, cell := range s.notes1 {
-			if cell.coord.row == row && cell.coord.col == col {
-				return color(s.theme["note"], fmt.Sprintf("%d", cell.value))
-			}
-		}
-	}
-
-	if s.layer == NOTE2_LAYER {
-		for _, cell := range s.notes2 {
-			if cell.coord.row == row && cell.coord.col == col {
-				return color(s.theme["note"], fmt.Sprintf("%d", cell.value))
-			}
-		}
-	}
+	puzzleValue := s.puzzle[row][col]
+	solutionValue := s.solution[row][col]
+	placedValue := s.placed[row][col]
 
 	if s.layer == PLAY_LAYER {
-		for _, cell := range s.placed {
-			if cell.coord.row == row && cell.coord.col == col {
-				return color(s.theme["placed"], fmt.Sprintf("%d", cell.value))
-			}
+		if placedValue != 0 && s.showSolutionErrors && placedValue != solutionValue {
+			return color(s.theme["error"], fmt.Sprintf("%d", placedValue))
+		}
+		if placedValue != 0 && s.showCurrentErrors && !isValidCell(placedValue, row, col, s.placed) {
+			return color(s.theme["error"], fmt.Sprintf("%d", placedValue))
+		}
+
+		if puzzleValue != 0 {
+			return color(s.theme["puzzle"], fmt.Sprintf("%d", puzzleValue))
+		}
+		if placedValue != 0 {
+			return fmt.Sprintf("%d", placedValue)
+		}
+	} else {
+		var noteBoard Board
+		if s.layer == NOTE1_LAYER {
+			noteBoard = s.notes1
+		} else {
+			noteBoard = s.notes2
+		}
+
+		if puzzleValue != 0 {
+			return color(s.theme["puzzle"], fmt.Sprintf("%d", puzzleValue))
+		}
+		if placedValue != 0 {
+			return fmt.Sprintf("%d", placedValue)
+		}
+		if noteBoard[row][col] != 0 {
+			return color(s.theme["note"], fmt.Sprintf("%d", noteBoard[row][col]))
 		}
 	}
 
-	// TODO: erroes
-	// currentErrorTheme := s.theme["placed"]
-	// solutionErrorTheme := s.theme["placed"]
-	// if s.showCurrentErrors {
-	// 	currentErrorTheme = s.theme["error"]
-	// }
-	// if s.showSolutionErrors {
-	// 	solutionErrorTheme = s.theme["error"]
-	// }
-
 	return " "
+
 }
 
 func (s *Sudoku) GetBoardStrings() []string {
@@ -240,4 +223,11 @@ func (s *Sudoku) GetBoardStrings() []string {
 
 	return boardString
 
+}
+
+func (s *Sudoku) Display() {
+	strings := s.GetBoardStrings()
+	for _, row := range strings {
+		fmt.Println(row)
+	}
 }
